@@ -18,6 +18,7 @@ class BootPatcher:
     workdir: str
     bootimg: str
     outbootimg: str
+    my_env: dict
 
 
     def __init__(self, bootimg,outbootimg="outboot.img",workdir="tmp", magisk_apk="Magisk-v25.2.apk"):
@@ -51,30 +52,27 @@ class BootPatcher:
 
     def unpack(self):
         try:
-            subprocess.check_call([self.workdir+"/magiskboot", "unpack", self.bootimg])
+            subprocess.check_call([self.workdir+"/magiskboot", "unpack", self.bootimg],env=self.my_env)
         except subprocess.CalledProcessError:
             print("Error unpacikng, unsupported image format")
             exit(1)
 
     def repack(self):
-        subprocess.check_call([self.workdir + "/magiskboot", "repack", self.bootimg, self.outbootimg])
+        subprocess.check_call([self.workdir + "/magiskboot", "repack", self.bootimg, self.outbootimg], env=self.my_env)
 
     def create_config(self):
-        config_file = open("config","w")
-        config_file.write("KEEPVERITY=false\n")
-        config_file.write("KEEPFORCEENCRYPT=true\n")
-        config_file.write("PATCHVBMETAFLAG==false\n")
-        config_file.write("RECOVERYMODE=false\n")
-        # config_file.write("SHA1={}\n".format())
-        config_file.close()
+        self.my_env = {}
+        self.my_env["KEEPVERITY"] = "true"
+        self.my_env["KEEPFORCEENCRYPT"] = "true"
+        self.my_env["PATCHVBMETAFLAG"] = "false"
+        self.my_env["RECOVERYMODE"] = "false"
 
     def compress_magisk(self):
-        subprocess.check_call([self.workdir + "/magiskboot", "compress=xz", "magisk32","magisk32.xz"])
-        subprocess.check_call([self.workdir + "/magiskboot", "compress=xz", "magisk64","magisk64.xz"])
+        subprocess.check_call([self.workdir + "/magiskboot", "compress=xz", "magisk32","magisk32.xz"], env=self.my_env)
+        subprocess.check_call([self.workdir + "/magiskboot", "compress=xz", "magisk64","magisk64.xz"], env=self.my_env)
 
 
     def magisk_patch_ramdisk(self):
-        self.create_config()
         self.compress_magisk()
 
         subprocess.check_call([self.workdir + "/magiskboot", "cpio", "ramdisk.cpio",
@@ -84,16 +82,16 @@ class BootPatcher:
                                           "add 0644 overlay.d/sbin/magisk32.xz magisk32.xz",
                                           "add 0644 overlay.d/sbin/magisk64.xz magisk64.xz",
                                           "patch"
-                                          ])
+                                          ], env=self.my_env)
 
     def magisk_patch_bin(self):
         for dt in ["dtb", "kernel_dtb"]:
             if os.path.exists(dt):
-                subprocess.run([self.workdir + "/magiskboot","dtb", dt, "patch"])
+                subprocess.run([self.workdir + "/magiskboot","dtb", dt, "patch"],env=self.my_env)
 
         # Force kernel to load rootfs
         # skip_initramfs -> want_initramfs
-        subprocess.check_call([self.workdir + "/magiskboot", "hexpatch", "kernel", "736B69705F696E697472616D667300", "736B69705F696E697472616D667300"])
+        subprocess.check_call([self.workdir + "/magiskboot", "hexpatch", "kernel", "736B69705F696E697472616D667300", "736B69705F696E697472616D667300"],env=self.my_env)
 
     def custom_patch(self):
         pass
@@ -103,6 +101,7 @@ class BootPatcher:
         self.extract_files()
         self.copy_files()
         os.chdir(self.workdir)
+        self.create_config()
 
         # patch boot
         self.unpack()
