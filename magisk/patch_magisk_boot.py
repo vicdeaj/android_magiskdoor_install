@@ -2,6 +2,8 @@ import os
 import shutil
 from zipfile import ZipFile
 import subprocess
+import libarchive
+
 
 
 def create_workdir(workdir):  # create workdir
@@ -52,7 +54,7 @@ class BootPatcher:
 
     def unpack(self):
         try:
-            subprocess.check_call([self.workdir+"/magiskboot", "unpack", self.bootimg],env=self.my_env)
+            subprocess.check_call([self.workdir+"/magiskboot", "unpack", self.bootimg])
         except subprocess.CalledProcessError:
             print("Error unpacikng, unsupported image format")
             exit(1)
@@ -67,33 +69,20 @@ class BootPatcher:
         self.my_env["PATCHVBMETAFLAG"] = "false"
         self.my_env["RECOVERYMODE"] = "false"
 
-    def compress_magisk(self):
-        subprocess.check_call([self.workdir + "/magiskboot", "compress=xz", "magisk32","magisk32.xz"], env=self.my_env)
-        subprocess.check_call([self.workdir + "/magiskboot", "compress=xz", "magisk64","magisk64.xz"], env=self.my_env)
-
-
-    def magisk_patch_ramdisk(self):
-        self.compress_magisk()
-
-        subprocess.check_call([self.workdir + "/magiskboot", "cpio", "ramdisk.cpio",
-                                          "add 0750 init magiskinit",
-                                          "mkdir 0750 overlay.d",
-                                          "mkdir 0750 overlay.d/sbin",
-                                          "add 0644 overlay.d/sbin/magisk32.xz magisk32.xz",
-                                          "add 0644 overlay.d/sbin/magisk64.xz magisk64.xz",
-                                          "patch"
-                                          ], env=self.my_env)
-
-    def magisk_patch_bin(self):
-        for dt in ["dtb", "kernel_dtb"]:
-            if os.path.exists(dt):
-                subprocess.run([self.workdir + "/magiskboot","dtb", dt, "patch"],env=self.my_env)
-
-        # Force kernel to load rootfs
-        # skip_initramfs -> want_initramfs
-        subprocess.check_call([self.workdir + "/magiskboot", "hexpatch", "kernel", "736B69705F696E697472616D667300", "736B69705F696E697472616D667300"],env=self.my_env)
 
     def custom_patch(self):
+        pass
+
+    def get_config(self):
+
+        a = libarchive.Archive('ramdisk.cpio')
+        for entry in a:
+            if entry.isfile() and "backup" not in entry.pathname:
+                print(entry)
+                print(entry.read())
+        a.close()
+
+        subprocess.run([self.workdir + "/magiskboot", "cpio", "ramdisk.cpio"])
         pass
 
     def run(self):
@@ -101,12 +90,11 @@ class BootPatcher:
         self.extract_files()
         self.copy_files()
         os.chdir(self.workdir)
-        self.create_config()
 
-        # patch boot
         self.unpack()
-        self.magisk_patch_ramdisk()
-        self.magisk_patch_bin()
+
+        # self.create_config()
+        self.get_config()
 
         self.custom_patch()
 
@@ -115,7 +103,7 @@ class BootPatcher:
         os.chdir(self.calling_dir)
 
 def main():
-    patcher = BootPatcher("boot.img")
+    patcher = BootPatcher("magisk.img")
     patcher.run()
 
 
