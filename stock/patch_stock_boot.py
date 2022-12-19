@@ -4,7 +4,7 @@ from zipfile import ZipFile
 import subprocess
 import hashlib
 import socket
-
+# little kernel patch 08B50E4B7B441B681B68022B0BD0032B 08B5002008BD1B681B68022B0BD0032B (return 0, do not display orange state warning)
 
 def create_workdir(workdir):  # create workdir
     if os.path.exists(workdir):
